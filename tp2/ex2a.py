@@ -7,6 +7,7 @@ import numpy as np
 from utils import BASE_DIR, carregar_imagem, normalizar_uint8
 
 
+# Aplica faixa diagonal com atenuacao de 62% na luminancia simulando sombra projetada
 def gerar_cenario_sombra(img_bgr):
     arr = img_bgr.astype(np.float32).copy()
     h, w = img_bgr.shape[:2]
@@ -21,6 +22,7 @@ def gerar_cenario_sombra(img_bgr):
     return np.clip(arr + ruido, 0, 255).astype(np.uint8)
 
 
+# Simula asfalto molhado com reducao de contraste, reflexos especulares e ruido Gaussiano
 def gerar_cenario_molhado(img_bgr):
     h, w = img_bgr.shape[:2]
     arr = (img_bgr.astype(np.float32) * 0.68).astype(np.uint8)
@@ -42,6 +44,7 @@ def gerar_cenario_molhado(img_bgr):
     return np.clip(combinado.astype(np.float32) + ruido, 0, 255).astype(np.uint8)
 
 
+# Avalia Sobel (X+Y), LoG, Canny (2 pares de limiares) e DoG com mediana de latencia
 def executar_operadores_bordas(img_bgr, repeticoes=7):
     cinza = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY) if img_bgr.ndim == 3 else img_bgr
 
@@ -49,10 +52,12 @@ def executar_operadores_bordas(img_bgr, repeticoes=7):
         sx = cv2.Sobel(cinza, cv2.CV_64F, 1, 0, ksize=3)
         sy = cv2.Sobel(cinza, cv2.CV_64F, 0, 1, ksize=3)
         mag = np.hypot(sx, sy)
+        # Limiar fixo em 95 converte a magnitude continua do gradiente em mapa binario comparavel
         binaria = np.uint8(mag >= 95.0) * 255
         return binaria, normalizar_uint8(sx), normalizar_uint8(sy), normalizar_uint8(mag)
 
     def op_log():
+        # Suavizacao Gaussiana previa atenua o ruido de alta frequencia antes da derivada de 2a ordem
         suavizada = cv2.GaussianBlur(cinza, (5, 5), 1.2)
         lap = cv2.Laplacian(suavizada, cv2.CV_64F, ksize=3)
         binaria = np.uint8(np.abs(lap) >= 35.0) * 255
@@ -67,6 +72,7 @@ def executar_operadores_bordas(img_bgr, repeticoes=7):
         return borda, borda
 
     def op_dog():
+        # Diferenca entre dois desvios padrao (1.0 e 2.2) atua como filtro passa-banda aproximando o LoG
         g1 = cv2.GaussianBlur(cinza, (0, 0), 1.0).astype(np.float32)
         g2 = cv2.GaussianBlur(cinza, (0, 0), 2.2).astype(np.float32)
         diff = np.abs(g1 - g2)
@@ -219,17 +225,13 @@ def main():
         melhor = max((r for r in linhas_tabela if r["cenario"] == cenario_deg), key=lambda x: x["f1"])
         print(f"\n-> Maior F1 em '{cenario_deg}': {melhor['operador']} (F1 = {melhor['f1']:.3f}, Tempo = {melhor['tempo_ms']:.3f} ms)")
 
-    print("\n--- Justificativa Tecnica de Robustez (Asfalto Molhado e Sombras) ---")
-    print("1. Canny com limiares moderados/altos e precedido por suavizacao Gaussiana apresenta o melhor")
-    print("   compromisso em cenarios veiculares reais porque combina: (a) filtragem passa-baixas contra")
-    print("   granulacao especular do asfalto molhado, (b) supressao nao-maxima (NMS) que afina as bordas")
-    print("   para 1 pixel de espessura, e (c) histerese de duplo limiar, que preserva a continuidade das")
-    print("   faixas sob penumbra de arvores/edificios sem disparar falsos positivos nos reflexos de agua.")
-    print("2. Na pista controlada com sombra projetada e reflexo sintético, Canny (100/200) elimina as")
-    print("   bordas fracas induzidas pelo reflexo especular (mantendo alta precisao), enquanto Canny (50/110)")
-    print("   e Sobel retêm maior revocacao na regiao sombreada de baixo contraste.")
-    print("3. O Laplaciano de Gaussiana (LoG) envolve derivadas de 2ª ordem, amplificando ruido de alta")
-    print("   frequencia em poças d'agua, enquanto o DoG atua como filtro passa-banda eficiente aproximando o LoG.")
+    # Justificativa tecnica de robustez (asfalto molhado e sombras):
+    # - Canny com suavizacao Gaussiana + NMS (espessura de 1 px) + histerese de duplo limiar
+    #   apresenta o melhor compromisso contra granulacao especular do asfalto molhado e penumbra.
+    # - Em sombra/reflexo sinteticos, Canny (100/200) elimina bordas fracas do reflexo especular
+    #   (alta precisao), enquanto Canny (50/110) e Sobel retem maior revocacao na sombra.
+    # - LoG usa derivada de 2a ordem (mais sensivel a ruido de alta frequencia em pocas);
+    #   DoG atua como filtro passa-banda eficiente aproximando o LoG.
     print(f"\nArquivos salvos: {caminho_fig1.name}, {caminho_fig2.name}, {caminho_csv.name}")
 
     if args.auto:

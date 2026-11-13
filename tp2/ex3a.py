@@ -7,12 +7,14 @@ import numpy as np
 from utils import BASE_DIR, carregar_imagem, criar_painel_opencv
 
 
+# Converte para escala de cinza e aplica suavizacao Gaussiana para estabilizar gradientes
 def pre_processar_hough(img_bgr):
     cinza = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     suavizada = cv2.GaussianBlur(cinza, (7, 7), 1.5)
     return suavizada
 
 
+# Calcula escore heuristico [0, 1] baseado na fracao do perimetro com borda Canny ativa
 def calcular_confianca_anel(cinza_suave, x, y, r):
     bordas = cv2.Canny(cinza_suave, 80, 160)
     dilatada = cv2.dilate(bordas, np.ones((3, 3), dtype=np.uint8), iterations=1)
@@ -22,10 +24,12 @@ def calcular_confianca_anel(cinza_suave, x, y, r):
     return float(np.mean(dilatada[ys, xs] > 0))
 
 
+# Filtra falsos positivos de HoughCircles exigindo borda anelar vermelha em HSV e NMS
 def filtrar_apoio_cromatico_placa(img_bgr, candidatos):
     if not candidatos:
         return []
     hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+    # Matiz vermelho envolve o inicio (0-13) e o fim (168-179) do espectro ciclico HSV do OpenCV
     masc_verm1 = cv2.inRange(hsv, (0, 65, 70), (13, 255, 255))
     masc_verm2 = cv2.inRange(hsv, (168, 65, 70), (179, 255, 255))
     mascara = masc_verm1 | masc_verm2
@@ -217,16 +221,12 @@ def main():
         writer.writeheader()
         writer.writerows(registros_csv)
 
-    print("\n--- Analise de Calibracao HoughCircles + HoughLinesP ---")
-    print("1. Config 1 (Sensivel - dp=1.0, param2=23): Eleva drasticamente os candidatos brutos no acumulador,")
-    print("   capturando placas distantes de menor raio, porem exige filtragem cromatica/anel para evitar falsos")
-    print("   positivos em rodas, farois e arcos arquitetonicos.")
-    print("2. Config 2 (Equilibrada - dp=1.2, param2=29): Melhor balanco entre precisao, revocacao e latencia,")
-    print("   detectando todas as placas nas 5 cenas com confianca de borda anelar entre 0.72 e 0.96.")
-    print("3. Config 3 (Restritiva - dp=1.5, param2=40): Reduz candidatos espúrios a quase zero, mas perde")
-    print("   placas menores ou parcialmente degradadas por iluminacao obliqua.")
-    print("4. Fusao Geometrica: A sobreposicao de HoughLinesP (com mascara trapezoidal de ROI) delimita")
-    print("   simultaneamente o corredor navegavel e a sinalizacao vertical na mesma passagem de percepcao.")
+    # Analise de calibracao HoughCircles + HoughLinesP:
+    # - Config 1 (Sensivel: dp=1.0, param2=23): eleva candidatos brutos, captura placas distantes
+    #   de menor raio, mas exige filtragem cromatica/anel para evitar falsos positivos em rodas/farois.
+    # - Config 2 (Equilibrada: dp=1.2, param2=29): melhor balanco precisao/revocacao/latencia.
+    # - Config 3 (Restritiva: dp=1.5, param2=40): reduz espurios a quase zero, mas perde placas menores.
+    # - Fusao geometrica: HoughLinesP sobre ROI trapezoidal delimita corredor navegavel e sinalizacao.
     print(f"\nArquivos salvos: {caminho_cenas.name}, {caminho_configs.name}, {caminho_csv.name}")
 
     if not args.auto:

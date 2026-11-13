@@ -11,38 +11,46 @@
 ## Preparação e Execução no Terminal (Windows PowerShell)
 
 ```powershell
-cd c:\Users\Lucas\Documents\codes\BlocoRobotica\VeiculosAutonomos\tp2
+cd VeiculosAutonomos\tp2
 pip install -r requirements.txt
-python tp2-1a.py
-python tp2-1b.py
-python tp2-2a.py
-python tp2-2b.py
-python tp2-3a.py
-python tp2-3b.py
-python tp2-4a.py
-python tp2-4b.py
+python ex1a.py
+python ex1b.py
+python ex2a.py
+python ex2b.py
+python ex3a.py
+python ex3b.py
+python ex4a.py
+python ex4b.py
 ```
+
+*(Para execução em lote sem abrir janelas interativas, adicione `--auto` ao comando de qualquer script.)*
 
 ---
 
 ## 1. Exercício 1: Homografia e Operações Morfológicas
 
-### 1.1 Item A: Alinhamento Multi-Câmera por Homografia (`tp2-1a.py`)
+### 1.1 Item A: Alinhamento Multi-Câmera por Homografia (`ex1a.py`)
 
-- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/tp2-1a.py
-- **Comando para executar:** `python tp2-1a.py`
+- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/ex1a.py
+- **Comando para executar:** `python ex1a.py`
 
-#### Resultados Quantitativos
-- **Resolução das Vistas:** `visao_01.png` (`850x370 px`) e `visao_02.png` (`850x370 px`).
-- **Detecção ORB:** `2500` keypoints na Vista 01 e `2500` keypoints na Vista 02 (`fastThreshold=12`).
-- **Casamento BFMatcher + Filtro de Razão de Lowe (`ratio=0.80`):** `1684` correspondências aprovadas de `2500` pares brutos (`k=2`, norma de Hamming).
-- **Estimativa RANSAC (`limiar = 3.0 px`):** **`1634` inliers** de `1684` matches (**`97.03%`** de consenso geométrico) e `50` outliers rejeitados.
-- **Erro de Reprojeção Médio (Inliers):** **`0.3383 px`** (máximo entre inliers = `3.4461 px`; erro global incluindo outliers = `5.3830 px`).
-- **Mosaico Panorâmico (`cv2.warpPerspective`):** Resolução final de **`1180x372 px`**, com área de sobreposição útil de **`44.1%`** combinada via blending linear ponderado.
+#### Resultados Quantitativos e Evidência de Terminal
+```text
+PS C:\Users\Lucas\Documents\codes\BlocoRobotica\VeiculosAutonomos\tp2> python ex1a.py
+=== TP2 - Exercicio 1A: Alinhamento Multi-Camera por Homografia ===
+Resolucao Vista 01          : 850x370 px | Resolucao Vista 02 : 850x370 px
+Keypoints ORB detectados    : Vista 01 = 2500 | Vista 02 = 2500
+Matches apos filtro de Lowe : 1684 (ratio = 0.80)
+Inliers RANSAC (limiar 3px) : 1634 de 1684 (97.03%) | Outliers = 50
+Erro medio reprojecao inlier: 0.3383 px (max = 3.4461 px)
+Resolucao Mosaico Panoramico: 1180x372 px (sobreposicao util = 44.1%)
+Matriz de Homografia H (Vista 02 -> Vista 01):
+  [    1.000510     -0.000125    329.930885]
+  [    0.000111      1.000160     -0.038441]
+  [    0.000001     -0.000001      1.000000]
+```
 
-$$
-H_{2 \to 1} = \begin{bmatrix} 1.000510 & -0.000125 & 329.930885 \\ 0.000111 & 1.000160 & -0.038441 \\ 0.000001 & -0.000001 & 1.000000 \end{bmatrix}
-$$
+![Mosaico Panorâmico e Casamento ORB + RANSAC](tp2-1a_mosaico.png)
 
 #### Aplicação em Sistemas de Visão 360° (Surround View / AVM)
 1. **Projeção Planar ao Solo:** Em sistemas automotivos *Around View Monitor* (AVM), 4 a 6 câmeras grande-angulares (*fisheye*) instaladas na grade frontal, tampa traseira e espelhos retrovisores laterais capturam o entorno do veículo com zonas de interseção nos 4 cantos. Após compensar a distorção radial/tangencial intrínseca, cada câmera aplica uma matriz de homografia $H_i$ (*Inverse Perspective Mapping*) que projeta sua imagem para o plano horizontal do asfalto ($Z = 0$) num referencial Bird's Eye View (BEV) unificado sobre o chassi.
@@ -51,10 +59,10 @@ $$
 
 ---
 
-### 1.2 Item B: Pipeline Morfológico para Segmentação de Marcações em BEV (`tp2-1b.py`)
+### 1.2 Item B: Pipeline Morfológico para Segmentação de Marcações em BEV (`ex1b.py`)
 
-- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/tp2-1b.py
-- **Comando para executar:** `python tp2-1b.py`
+- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/ex1b.py
+- **Comando para executar:** `python ex1b.py`
 
 #### Comparação dos 3 Elementos Estruturantes (`5x7`)
 
@@ -73,14 +81,16 @@ $$
   - **Área média:** **`2026.29 px²`** (mín = `1023 px²`, máx = `7245 px²`)
   - **Razão de aspecto média ($h/w$):** **`7.05`**
 
+![Pipeline Morfológico BEV](tp2-1b_morfologia.png)
+
 ---
 
 ## 2. Exercício 2: Filtragem Espacial e Detecção de Bordas
 
-### 2.1 Item A: Comparação de 4 Operadores de Detecção de Bordas (`tp2-2a.py`)
+### 2.1 Item A: Comparação de 4 Operadores de Detecção de Bordas (`ex2a.py`)
 
-- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/tp2-2a.py
-- **Comando para executar:** `python tp2-2a.py`
+- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/ex2a.py
+- **Comando para executar:** `python ex2a.py`
 
 #### Tabela 1 — Cena Frontal Veicular Real (`frontal_kitti.png`, `1224x370 px`)
 
@@ -91,6 +101,8 @@ $$
 | **Canny (`50 / 110`)** | `88.978` | `19.65%` | `2.288` |
 | **Canny (`100 / 200`)** | `57.888` | `12.78%` | `1.220` |
 | **DoG ($\sigma_1=1.0, \sigma_2=2.2$)** | `117.974` | `26.05%` | `7.833` |
+
+![Operadores de Borda KITTI](tp2-2a_operadores_kitti.png)
 
 #### Tabela 2 — Benchmark sob Condições de Sombra e Asfalto Molhado (`pista_bev.png`)
 
@@ -112,21 +124,22 @@ $$
 | **Asfalto Molhado** | Canny (`100/200`) | `4.506` | `0.215` | `0.509` | `1.000` | `0.674` |
 | **Asfalto Molhado** | DoG (`1.0 vs 2.2`) | `18.041` | `5.130` | `0.608` | `1.000` | `0.756` |
 
+![Comparação sob Sombra e Asfalto Molhado](tp2-2a_comparacao_cenarios.png)
+
 #### Justificativa de Robustez (Asfalto Molhado e Sombras)
-- No dataset sintético com métrica tolerante a 2 px, o **LoG ($\sigma=1.2$)** atingiu o maior F1 numérico em **Sombra (`0.778`)** e **Asfalto Molhado (`0.876`)** porque sua suavização Gaussiana prévia atenua o ruído aditivo enquanto a borda dupla do Laplaciano preenche a vizinhança de tolerância da máscara de referência.
+- No dataset sintético com métrica tolerante a 2 px, o **LoG ($\sigma=1.2$)** atingiu o maior F1 em **Sombra (`0.778`)** e **Asfalto Molhado (`0.876`)** porque sua suavização Gaussiana prévia atenua o ruído aditivo enquanto a borda dupla do Laplaciano preenche a vizinhança de tolerância da máscara de referência.
 - Contudo, em **pipelines embarcados reais** (onde se exige resposta de 1 px de espessura para a Transformada de Hough e latência sub-milissegundo), o **Canny (`100/200`) precedido por filtro Gaussiano** é a escolha de engenharia mais robusta (`0.215 ms` a `1.220 ms`): a **supressão não-máxima (NMS)** evita bordas espessas, o limiar superior (`200`) rejeita reflexos especulares fracos na lâmina d'água e a **histerese** reconecta os trechos de faixa atenuados pela sombra sem disparar falsos positivos na textura do pavimento.
 
 ---
 
-### 2.2 Item B: Convolução 2D Manual em NumPy e Banco de Filtros Direcionais (`tp2-2b.py`)
+### 2.2 Item B: Convolução 2D Manual em NumPy e Banco de Filtros Direcionais (`ex2b.py`)
 
-- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/tp2-2b.py
-- **Comando para executar:** `python tp2-2b.py`
+- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/ex2b.py
+- **Comando para executar:** `python ex2b.py`
 
 #### Validação Pixel a Pixel (`convolucao_2d_manual_lacos` vs `cv2.Sobel`)
 - **Imagem avaliada:** `pista_bev.png` (`640x400 px` = `256.000` pixels) com padding `reflect`.
 - **Erro absoluto máximo:** **`0.000000000000`** (`MAE = 0.0`, **`0` pixels divergentes** de `256.000`, `np.allclose = True`).
-- **Tempo de execução:** `512.00 ms` em laços explícitos Python/NumPy vs `0.6155 ms` em `cv2.Sobel` (C++/SIMD).
 
 #### Resposta do Banco de Filtros Direcionais (`0°, 45°, 90°, 135°`)
 
@@ -137,18 +150,20 @@ $$
 | **90° (Gradiente Vertical)** | `5.160` | `91.671` | `123.447.857,0` |
 | **135° (Diagonal Secundária)** | `14.489` | `502.151` | `578.723.662,0` |
 
+![Convolução Manual e Banco Direcional](tp2-2b_convolucao_direcional.png)
+
 #### Discussão: Filtros Direcionais e Camadas Convolucionais de CNNs (Conexão DR2)
 1. **Ângulo de Maior Resposta (`0°`):** Na projeção BEV, as faixas de rolamento são estruturas longitudinais alinhadas ao eixo vertical $Y$. A transição de intensidade entre o asfalto escuro e a tinta clara ocorre perpendicularmente à faixa (ao longo do eixo horizontal $X$). Logo, o filtro direcional de **`0°` (`Sobel X`)** maximiza a resposta média nas bordas (`643.441`), enquanto o filtro de **`90°` (`Sobel Y`)** responde apenas nas extremidades horizontais das marcações tracejadas (`91.671`).
-2. **Relação com Camadas `Conv2D` (DR2):** O empilhamento dos 4 mapas de resposta transforma a imagem de entrada $(400, 640, 1)$ num tensor $(400, 640, 4)$, operação idêntica a uma camada `Conv2D(in_channels=1, out_channels=4, kernel_size=3)`. Enquanto no banco clássico os coeficientes são fixados analiticamente pelo engenheiro, nas CNNs estudadas em DR2 os pesos dos filtros das primeiras camadas convergem via *backpropagation* para detectores direcionais de bordas e frequências (análogos a Sobel/Gabor), cujos *feature maps* são recombinados nas camadas profundas para reconhecer semântica complexa (faixas desgastadas, veículos e pedestres).
+2. **Relação com Camadas `Conv2D` (DR2):** O empilhamento dos 4 mapas de resposta transforma a imagem de entrada $(400, 640, 1)$ num tensor $(400, 640, 4)$, operação idêntica a uma camada `Conv2D(in_channels=1, out_channels=4, kernel_size=3)`. Enquanto no banco clássico os coeficientes são fixados analiticamente pelo engenheiro, nas CNNs estudadas em DR2 os pesos dos filtros das primeiras camadas convergem via *backpropagation* para detectores direcionais de bordas e frequências (análogos a Sobel/Gabor), cujos *feature maps* são recombinados nas camadas profundas para reconhecer semântica complexa.
 
 ---
 
 ## 3. Exercício 3: Detecção de Formas Geométricas e Keypoints
 
-### 3.1 Item A: Detecção de Sinais Circulares (`HoughCircles`) e Via (`HoughLinesP`) (`tp2-3a.py`)
+### 3.1 Item A: Detecção de Sinais Circulares (`HoughCircles`) e Via (`HoughLinesP`) (`ex3a.py`)
 
-- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/tp2-3a.py
-- **Comando para executar:** `python tp2-3a.py`
+- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/ex3a.py
+- **Comando para executar:** `python ex3a.py`
 
 #### Resultados nas 5 Cenas de Tráfego (`rua_01.jpg` a `rua_05.jpg`) com 3 Configurações
 
@@ -160,12 +175,14 @@ $$
 | **`rua_04.jpg`** | `2` círculos (`54.26 ms`) | **`3` candidatos**: `(775,227) r=13 c=0.94`; `(137,220) r=23 c=1.00` (`20.42 ms`) | `1` placa: `(137,220) r=23 c=1.00` (`12.15 ms`) | `36` |
 | **`rua_05.jpg`** | `2` placas (`11.33 ms`) | **`2` placas**: `(785,190) r=28 c=1.00`; `(135,218) r=21 c=0.95` (`8.57 ms`) | `2` placas: `(785,190) r=28 c=1.00`; `(136,218) r=15 c=0.96` (`6.44 ms`) | `16` |
 
+![HoughCircles e HoughLinesP nas 5 Cenas](tp2-3a_hough_5_cenas.png)
+
 ---
 
-### 3.2 Item B: Harris vs Shi-Tomasi ($N=200$) e Fluxo Óptico Lucas-Kanade (`tp2-3b.py`)
+### 3.2 Item B: Harris vs Shi-Tomasi ($N=200$) e Fluxo Óptico Lucas-Kanade (`ex3b.py`)
 
-- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/tp2-3b.py
-- **Comando para executar:** `python tp2-3b.py`
+- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/ex3b.py
+- **Comando para executar:** `python ex3b.py`
 
 #### Comparação de Desempenho Harris vs Shi-Tomasi ($N=200$ Keypoints)
 
@@ -183,6 +200,8 @@ $$
 - **Deslocamento mediano:** $dx = +1.156\text{ px}$, $dy = +0.343\text{ px}$, magnitude $|\mathbf{v}| = \mathbf{1.207\text{ px/frame}}$ (máximo = `9.217 px/frame`).
 - **Velocidade óptica aparente:** **`14.48 px/s`** (a `12 FPS`).
 
+![Harris vs Shi-Tomasi e Fluxo Óptico Lucas-Kanade](tp2-3b_harris_vs_shi.png)
+
 #### Estimativa de Velocidade Relativa de Obstáculos via Fluxo Óptico
 Pela equação de projeção perspectiva $x = f_x \frac{X}{Z} + c_x$, a derivada temporal do ponto projetado fornece o fluxo óptico:
 $$
@@ -195,14 +214,14 @@ $$
 
 ## 4. Exercício 4: Detecção de Objetos em Ambiente Simulado com MetaDrive
 
-### 4.1 Item A: Detector de Faixas em Tempo Real no MetaDrive (200 Steps) (`tp2-4a.py`)
+### 4.1 Item A: Detector de Faixas em Tempo Real no MetaDrive por 200 Steps (`ex4a.py`)
 
-- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/tp2-4a.py
-- **Comando para executar:** `python tp2-4a.py`
+- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/ex4a.py
+- **Comando para executar:** `python ex4a.py`
 
 #### Resumo da Execução em 200 Steps (`MetaDriveEnv` + Câmera Frontal `640x360`)
 - **Steps executados:** `200` (ao longo de `3` episódios com política de condução aleatória).
-- **Detecção de faixas:** `151 / 200` steps (`75.5%`) com pelo menos uma borda polinomial ajustada e **`102 / 200` steps (`51.0%`)** com ambas as bordas visíveis simultaneamente (nos demais steps a política aleatória leva o veículo às margens ou curvas fechadas).
+- **Detecção de faixas:** `151 / 200` steps (`75.5%`) com pelo menos uma borda polinomial ajustada e **`102 / 200` steps (`51.0%`)** com ambas as bordas visíveis simultaneamente.
 - **Telemetria registrada em `tp2-4a_metricas_200_steps.csv`:**
   - **Velocidade média do agente:** **`7.06 km/h`** (máx = `14.65 km/h`)
   - **Desvio lateral médio:** **`-10.78 px`** (`-0.107 m` estimados, $\sigma = 50.27\text{ px}$)
@@ -217,12 +236,15 @@ $$
 | **Real Rodovia (`pista_udacity.png`)** | `9` | `2` (faixas reais) | `-19.0 px` | `4074 px` | `9.55` |
 | **Simulado (`MetaDrive Step 1`)** | `4` | `2` (faixas sintéticas) | `-13.6 px` | `845 px` | `8.91` |
 
+![Comparação Real vs MetaDrive](tp2-4a_comparacao_kitti_metadrive.png)
+![Série Temporal 200 Steps MetaDrive](tp2-4a_serie_200_steps.png)
+
 ---
 
-### 4.2 Item B: Integração YOLOv8n no Loop do Simulador MetaDrive (500 Steps) (`tp2-4b.py`)
+### 4.2 Item B: Integração YOLOv8n no Loop do Simulador MetaDrive (500 Steps) (`ex4b.py`)
 
-- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/tp2-4b.py
-- **Comando para executar:** `python tp2-4b.py`
+- **Script:** https://github.com/LcsGondra/VeiculosAutonomos/blob/main/tp2/ex4b.py
+- **Comando para executar:** `python ex4b.py`
 
 #### Degradação de FPS (Sem YOLO vs Com YOLOv8n Ativo)
 
@@ -242,8 +264,10 @@ $$
   - **`person`:** **`4`** detecções (`0.008` objetos/frame; pico = `1`).
   - **`bus`:** **`2`** detecções (`0.004` objetos/frame; pico = `1`).
 
+![Detecções YOLOv8n no MetaDrive](tp2-4b_deteccoes_yolo_painel.png)
+![Série Temporal 500 Steps e Benchmark FPS](tp2-4b_serie_temporal_500_steps.png)
+
 #### Discussão Técnica: Impacto no Loop de Controle e Estratégias de Otimização
-1. **Atraso de Fase no Loop de Controle:** A inserção síncrona do YOLOv8n elevou a latência do ciclo de `26.27 ms` (`38.07 FPS`) para `44.42 ms` (`22.51 FPS`), uma **degradação de `40.87%` no FPS**. Em um veículo real a $100\text{ km/h}$ ($27.78\text{ m/s}$), um acréscimo de $18.15\text{ ms}$ a $50\text{ ms}$ por frame adiciona $0.50\text{ m}$ a $1.39\text{ m}$ de atraso espacial na malha fechada de controle lateral (PID/MPC) e frenagem autônoma de emergência (AEB), reduzindo a margem de fase do controlador.
+1. **Atraso de Fase no Loop de Controle:** A execução síncrona do YOLOv8n elevou a latência do ciclo de `26.27 ms` (`38.07 FPS`) para `44.42 ms` (`22.51 FPS`), uma **degradação de `40.87%` no FPS**. Em um veículo real a $100\text{ km/h}$ ($27.78\text{ m/s}$), um acréscimo de $18.15\text{ ms}$ a $50\text{ ms}$ por frame adiciona $0.50\text{ m}$ a $1.39\text{ m}$ de atraso espacial na malha fechada de controle lateral (PID/MPC) e frenagem autônoma de emergência (AEB), reduzindo a margem de fase do controlador.
 2. **Frame Skipping (`skip=2` e `skip=4`):** Executar o detector pesado a cada $k$ quadros e propagar as caixas nos quadros intermediários (via rastreador leve como Lucas-Kanade ou Filtro de Kalman/SORT) elevou o FPS de `22.51 FPS` para **`29.24 FPS` (`+29.9%`)** com `skip=2` e **`31.21 FPS` (`+38.7%`)** com `skip=4`, recuperando quase a taxa original do simulador.
 3. **Redução de Resolução (`320x320` vs `640x640`) e Quantização:** Reduzir a entrada para `320x320` diminui em $4\times$ o volume espacial das ativações convolucionais (muito efetivo em GPUs/NPUs embarcadas como NVIDIA Jetson Orin com TensorRT INT8/FP16), porém compromete a detecção de objetos pequenos a longa distância (placas e pedestres distantes). Em arquiteturas de produção (ROS 2 / Autoware), desacopla-se a thread de percepção profunda (`20–30 Hz`) da thread de atuação/controle (`100 Hz`).
-

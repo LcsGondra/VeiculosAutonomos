@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent
 DADOS_DIR = BASE_DIR / "dados"
 
 
+# Carrega imagem da pasta dados/ validando a existencia do arquivo
 def carregar_imagem(nome, cinza=False):
     caminho = DADOS_DIR / nome
     flag = cv2.IMREAD_GRAYSCALE if cinza else cv2.IMREAD_COLOR
@@ -16,6 +17,7 @@ def carregar_imagem(nome, cinza=False):
     return imagem
 
 
+# Mapeia magnitudes float64 de gradientes/filtros para a faixa [0, 255] uint8
 def normalizar_uint8(matriz):
     arr = np.asarray(matriz, dtype=np.float64)
     max_val = float(np.max(np.abs(arr)))
@@ -24,6 +26,7 @@ def normalizar_uint8(matriz):
     return np.uint8(np.clip((np.abs(arr) / max_val) * 255.0, 0, 255))
 
 
+# Monta e salva um grid comparativo com legendas sobrepostas sem depender de GUI
 def criar_painel_opencv(pares, caminho_saida, largura=540, altura=310, colunas=3):
     quadros = []
     for legenda, imagem in pares:
@@ -31,6 +34,7 @@ def criar_painel_opencv(pares, caminho_saida, largura=540, altura=310, colunas=3
         if img.ndim == 2:
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         img_redim = cv2.resize(img, (largura, altura), interpolation=cv2.INTER_AREA)
+        # Barra superior escura para garantir contraste da legenda em qualquer cena
         cv2.rectangle(img_redim, (0, 0), (largura, 40), (22, 31, 46), -1)
         cv2.putText(
             img_redim,

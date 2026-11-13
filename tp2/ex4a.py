@@ -7,6 +7,7 @@ import numpy as np
 from utils import BASE_DIR, carregar_imagem, criar_painel_opencv
 
 
+# Configura o ambiente MetaDrive com sensor RGBCamera frontal em modo de observacao por imagem
 def instanciar_metadrive(usar_render=False, largura=640, altura=360, semente=42, densidade=0.20):
     from metadrive.component.sensors.rgb_camera import RGBCamera
     from metadrive.envs.metadrive_env import MetaDriveEnv
@@ -28,6 +29,7 @@ def instanciar_metadrive(usar_render=False, largura=640, altura=360, semente=42,
     return MetaDriveEnv(config), config
 
 
+# Converte o tensor RGB retornado pelo MetaDrive (float [0,1] ou uint8) para BGR OpenCV
 def extrair_frame_bgr(obs):
     img = np.asarray(obs["image"])
     if img.ndim == 4:
@@ -41,12 +43,14 @@ def extrair_frame_bgr(obs):
     return cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
 
+# Reaproveita o detector de faixas do TP1 (HLS + Sobel + ROI + HoughLinesP + ajuste quadratico)
 def detector_faixas_tp1_q3(frame_bgr):
     h, w = frame_bgr.shape[:2]
     hls = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HLS)
     canal_l = hls[:, :, 1]
     canal_s = hls[:, :, 2]
 
+    # Segmentacao cromatica combinada com gradiente horizontal para robustez a sombras
     mascara_branca = (canal_l >= 160) & (canal_s <= 130)
     mascara_amarela = (canal_s >= 85) & (canal_l >= 65)
 
@@ -124,6 +128,7 @@ def detector_faixas_tp1_q3(frame_bgr):
             centro_pista = 0.5 * (x_esq + x_dir)
             centro_cam = 0.5 * w
             desvio_px = float(centro_cam - centro_pista)
+            # Conversao aproximada assumindo largura padrao de faixa americana/europeia de 3.7 m
             escala_xm = 3.7 / max(largura_faixa_px, 1.0)
             escala_ym = 30.0 / max(0.40 * h, 1.0)
             desvio_m_est = desvio_px * escala_xm
@@ -361,16 +366,12 @@ def main():
     print(f"{'Real Rodovia (Asfalto)':<24} | {res_rodovia['segmentos']:>15} | {res_rodovia['faixas_ajustadas']:>16} | {desv_r_str:>18} | {curv_r_str:>16} | {tempo_rodovia_ms:>10.2f}")
     print(f"{'Simulado (MetaDrive)':<24} | {amostra_sim_res['segmentos']:>15} | {amostra_sim_res['faixas_ajustadas']:>16} | {desv_s_str:>18} | {curv_s_str:>16} | {float(np.mean(tempos_faixa)):>10.2f}")
 
-    print("\n--- Analise Critica: Domain Shift Real (KITTI) vs Simulado (MetaDrive) ---")
-    print("1. Contraste e Textura: No MetaDrive, o pavimento possui cor sintetica uniforme e linhas de")
-    print("   alto contraste sem desgaste, produzindo bordas Canny limpas e maior numero de segmentos Hough.")
-    print("   Ja na imagem real KITTI ha sombras de arvores, variacao de exposicao e desgaste da pintura.")
-    print("2. Dinamica da Politica Aleatoria: Como o agente executa estercamento aleatorio em curvas e")
-    print("   trafego, o veiculo frequentemente sai do centro da faixa ou oclui uma das bordas atras de outros")
-    print("   veiculos, explicando os steps em que apenas 1 borda e visivel.")
-    print("3. Calibracao Geometrica (Sim-to-Real Gap): A conversao exata de pixels para metros depende dos")
-    print("   parametros intrinsecos (FOV, distancia focal) e extrinsecos (altura e pitch da camera), que")
-    print("   diferem entre a camera do KITTI e a RGBCamera virtual do Panda3D/MetaDrive.")
+    # Analise critica (Domain Shift Real KITTI vs Simulado MetaDrive):
+    # - Contraste/textura: pavimento sintetico uniforme no MetaDrive gera bordas Canny mais limpas
+    #   do que cenas reais KITTI com sombras de arvores, variacao de exposicao e desgaste da tinta.
+    # - Politica aleatoria: estercamento aleatorio e oclusao por trafego explicam steps com apenas 1 borda.
+    # - Sim-to-Real Gap: conversao pixels->metros depende dos intrinsecos (FOV/focal) e extrinsecos
+    #   (altura/pitch) da camera fisica vs RGBCamera virtual do Panda3D/MetaDrive.
     print(f"\nArquivos salvos: {caminho_csv.name}, {caminho_comp.name}, {caminho_serie.name}, {caminho_video.name}")
 
     if args.auto:

@@ -1,16 +1,16 @@
 cenario,operador,pixels_ativos,tempo_ms,precisao,recall,f1
-Normal,Sobel (X+Y Mag),6280,12.293,0.744,1.0,0.853
-Normal,LoG (sigma=1.2),18171,3.751,0.623,1.0,0.768
-Normal,Canny (50/110),3048,0.369,0.738,1.0,0.849
-Normal,Canny (100/200),3048,0.311,0.738,1.0,0.849
-Normal,DoG (1.0 vs 2.2),22954,5.483,0.494,1.0,0.661
-Sombra,Sobel (X+Y Mag),8758,10.117,0.542,1.0,0.703
-Sombra,LoG (sigma=1.2),15200,3.85,0.636,1.0,0.778
-Sombra,Canny (50/110),4300,0.787,0.53,1.0,0.693
-Sombra,Canny (100/200),4300,0.487,0.53,1.0,0.693
-Sombra,DoG (1.0 vs 2.2),21629,5.512,0.493,1.0,0.66
-Asfalto Molhado,Sobel (X+Y Mag),8741,10.731,0.545,1.0,0.706
-Asfalto Molhado,LoG (sigma=1.2),11861,4.113,0.779,1.0,0.876
+Normal,Sobel (X+Y Mag),6280,10.23,0.744,1.0,0.853
+Normal,LoG (sigma=1.2),18171,4.11,0.623,1.0,0.768
+Normal,Canny (50/110),3048,0.15,0.738,1.0,0.849
+Normal,Canny (100/200),3048,0.134,0.738,1.0,0.849
+Normal,DoG (1.0 vs 2.2),22954,5.286,0.494,1.0,0.661
+Sombra,Sobel (X+Y Mag),8758,10.602,0.542,1.0,0.703
+Sombra,LoG (sigma=1.2),15200,4.106,0.636,1.0,0.778
+Sombra,Canny (50/110),4300,0.245,0.53,1.0,0.693
+Sombra,Canny (100/200),4300,0.151,0.53,1.0,0.693
+Sombra,DoG (1.0 vs 2.2),21629,5.031,0.493,1.0,0.66
+Asfalto Molhado,Sobel (X+Y Mag),8741,9.3,0.545,1.0,0.706
+Asfalto Molhado,LoG (sigma=1.2),11861,3.804,0.779,1.0,0.876
 Asfalto Molhado,Canny (50/110),4559,0.269,0.506,1.0,0.672
-Asfalto Molhado,Canny (100/200),4506,0.215,0.509,1.0,0.674
-Asfalto Molhado,DoG (1.0 vs 2.2),18041,5.13,0.608,1.0,0.756
+Asfalto Molhado,Canny (100/200),4506,0.255,0.509,1.0,0.674
+Asfalto Molhado,DoG (1.0 vs 2.2),18041,4.344,0.608,1.0,0.756

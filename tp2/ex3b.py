@@ -7,11 +7,13 @@ import numpy as np
 from utils import BASE_DIR, DADOS_DIR, carregar_imagem, criar_painel_opencv
 
 
+# Detecta ate N cantos de Harris com supressao espacial gulosa pela distancia minima
 def extrair_harris_top_n(img_bgr, max_pontos=200, min_dist=7):
     cinza_f32 = np.float32(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY))
     t0 = time.perf_counter()
     resposta = cv2.cornerHarris(cinza_f32, blockSize=2, ksize=3, k=0.04)
     resposta_dil = cv2.dilate(resposta, None)
+    # Limiar relativo de 0.05% do pico garante cobertura suficiente mesmo com pontos esparsos
     limiar = float(resposta_dil.max()) * 0.0005
     coords = np.argwhere(resposta_dil > limiar)
     coords_ord = sorted(coords, key=lambda yx: float(resposta_dil[yx[0], yx[1]]), reverse=True)
@@ -28,6 +30,7 @@ def extrair_harris_top_n(img_bgr, max_pontos=200, min_dist=7):
     return pontos, resposta_dil, tempo_ms
 
 
+# Extrai ate N cantos Shi-Tomasi via menor autovalor min(lambda_1, lambda_2)
 def extrair_shi_tomasi_top_n(img_bgr, max_pontos=200, quality=0.01, min_dist=7):
     cinza = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     t0 = time.perf_counter()
@@ -53,6 +56,7 @@ def desenhar_keypoints(img_bgr, pontos, cor=(0, 230, 255)):
     return vis
 
 
+# Rastreia keypoints esparsos entre frames consecutivos via piramide Lucas-Kanade (3 niveis)
 def calcular_fluxo_lucas_kanade(frame_a, frame_b, pts_iniciais=None):
     cinza_a = cv2.cvtColor(frame_a, cv2.COLOR_BGR2GRAY)
     cinza_b = cv2.cvtColor(frame_b, cv2.COLOR_BGR2GRAY)
@@ -63,6 +67,7 @@ def calcular_fluxo_lucas_kanade(frame_a, frame_b, pts_iniciais=None):
         return np.empty((0, 2)), np.empty((0, 2)), 0.0
 
     t0 = time.perf_counter()
+    # Piramide de 3 niveis + janela 21x21 permite rastrear deslocamentos acima da abertura local
     pts_seguintes, status, _ = cv2.calcOpticalFlowPyrLK(
         cinza_a,
         cinza_b,
@@ -232,19 +237,13 @@ def main():
     print(f"Velocidade optica aparente      : {vel_aparente_px_s:.2f} px/s (a {fps_video:.0f} FPS)")
     print(f"Video processado                : {caminho_mp4.name} ({len(registros_video)} pares de frames)")
 
-    print("\n--- Discussao: Harris vs Shi-Tomasi e Estimativa de Velocidade Relativa de Obstaculos ---")
-    print("1. Criterio de Estabilidade (Harris vs Shi-Tomasi): Enquanto Harris avalia R = det(M) - k*tr(M)^2")
-    print("   (aproximacao sensivel a constante empirica k=0.04 e que tende a aglomerar pontos em texturas fortes),")
-    print("   Shi-Tomasi avalia diretamente min(lambda_1, lambda_2) da matriz de estrutura M e aplica distancia")
-    print("   euclidiana minima nativa (minDistance=7), gerando matrizes bem-condicionadas para inversao no LK.")
-    print("2. Estimativa de Velocidade Relativa por Fluxo Optico: O vetor de fluxo optico (u, v) = (dx/dt, dy/dt)")
-    print("   mede a velocidade projetada no plano de imagem em pixels/frame. Pela equacao de projecao perspectiva")
-    print("   X = Z*(x - c_x)/f_x, a derivada temporal relaciona o fluxo optico a velocidade tridimensional:")
-    print("   - Componentes translacionais (V_x, V_y): produzem fluxo transversal proporcional a f / Z.")
-    print("   - Aproximacao longitudinal (V_z): gera divergencia radial dos vetores a partir do Foco de Expansao")
-    print("     (FOE), permitindo estimar o Time-to-Collision (TTC = Z / V_z) pela taxa de expansao da caixa/pontos")
-    print("     mesmo sem conhecer a escala absoluta, ou converter para metros/segundo (m/s) quando combinado com")
-    print("     profundidade Z (estereo, LiDAR ou homografia planar do solo) e compensacao do ego-movimento (IMU/odometria).")
+    # Discussao (Harris vs Shi-Tomasi e Estimativa de Velocidade Relativa):
+    # - Harris usa R = det(M) - k*tr(M)^2 (sensivel a k=0.04 e tende a aglomerar pontos);
+    #   Shi-Tomasi avalia min(lambda_1, lambda_2) com minDistance nativo, gerando pontos bem
+    #   condicionados para a inversao matricial no algoritmo Lucas-Kanade.
+    # - Pela projecao perspectiva X = Z*(x - c_x)/f_x, o fluxo optico (u, v) relaciona-se a
+    #   velocidade 3D: deslocamentos transversais escalam com f/Z e aproximacao longitudinal (V_z)
+    #   gera divergencia radial a partir do FOE, permitindo estimar TTC = Z/V_z ou m/s com escala Z.
     print(f"\nArquivos salvos: {caminho_painel_kp.name}, {caminho_mp4.name}, {caminho_csv.name}")
 
     if not args.auto:

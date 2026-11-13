@@ -5,8 +5,10 @@ import numpy as np
 from utils import BASE_DIR, carregar_imagem, criar_painel_opencv
 
 
+# Binariza marcacoes claras no asfalto via limiarizacao Gaussiana local
 def binarizar_adaptativo(img_bgr, block_size=31, constante_c=-12):
     cinza = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY) if img_bgr.ndim == 3 else img_bgr
+    # Constante C=-12 (equivalente a offset +12 acima da media local) suprime textura escura do pavimento
     mascara = cv2.adaptiveThreshold(
         cinza,
         255,
@@ -18,6 +20,7 @@ def binarizar_adaptativo(img_bgr, block_size=31, constante_c=-12):
     return mascara
 
 
+# Executa abertura (remove ruido sal/pimenta) seguida de fechamento (fecha falhas nas faixas)
 def aplicar_pipeline_morfologico(mascara, forma_kernel, tamanho=(5, 7)):
     kernel = cv2.getStructuringElement(forma_kernel, tamanho)
     abertura = cv2.morphologyEx(mascara, cv2.MORPH_OPEN, kernel)
@@ -25,16 +28,19 @@ def aplicar_pipeline_morfologico(mascara, forma_kernel, tamanho=(5, 7)):
     return abertura, fechamento, kernel
 
 
+# Isola marcacoes de pista por area minima e alongamento longitudinal (h/w) em BEV
 def extrair_e_filtrar_marcacoes(img_bgr, mascara_limpa, area_min=100, razao_min=1.5):
     num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mascara_limpa, connectivity=8)
     anotada = img_bgr.copy()
     aprovadas = []
     rejeitadas = 0
 
+    # Indice 0 corresponde ao fundo; iteracao inicia em 1 para inspecionar cada componente conexo
     for idx in range(1, num_labels):
         x, y, w, h, area = map(int, stats[idx])
         cx, cy = centroids[idx]
         razao_aspecto = float(h) / float(max(w, 1))
+        # Filtro geometrico separa faixas verticais alongadas de manchas/ruidos residuais
         if area >= area_min and razao_aspecto >= razao_min:
             aprovadas.append(
                 {
@@ -149,13 +155,13 @@ def main():
     print(f"Area media das marcacoes            : {float(np.mean(areas)):.2f} px² (min = {min(areas)}, max = {max(areas)})")
     print(f"Razao de aspecto media (h/w)        : {float(np.mean(razoes)):.2f}")
 
-    print("\n--- Analise Comparativa dos Elementos Estruturantes ---")
-    print("- MORPH_RECT (5x7): Preserva bordas retas e cantos ortogonais das faixas pintadas no asfalto,")
-    print("  maximizando o preenchimento de falhas internas nas linhas tracejadas.")
-    print("- MORPH_ELLIPSE (5x7): Suaviza os contornos e remove ruido isotropico com menor distorcao angular,")
-    print("  arredondando levemente as extremidades das faixas.")
-    print("- MORPH_CROSS (5x7): Atua apenas nas direcoes cardeais (horizontal/vertical), sendo mais conservador")
-    print("  na remocao de ruido diagonal e retendo menos area nas bordas obliquas.")
+    # Analise comparativa dos elementos estruturantes (5x7):
+    # - MORPH_RECT: preserva bordas retas e cantos ortogonais das faixas pintadas no asfalto,
+    #   maximizando o preenchimento de falhas internas nas linhas tracejadas.
+    # - MORPH_ELLIPSE: suaviza os contornos e remove ruido isotropico com menor distorcao angular,
+    #   arredondando levemente as extremidades das faixas.
+    # - MORPH_CROSS: atua apenas nas direcoes cardeais (horizontal/vertical), sendo mais conservador
+    #   na remocao de ruido diagonal e retendo menos area nas bordas obliquas.
     print(f"\nPainel visual salvo em: {caminho_painel.name}")
 
     if not args.auto:

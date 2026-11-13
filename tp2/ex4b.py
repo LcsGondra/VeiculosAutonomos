@@ -31,6 +31,7 @@ CORES_CLASSES = {
 }
 
 
+# Inicializa MetaDriveEnv com trafego moderado (0.30) e camera frontal RGB 640x360
 def abrir_ambiente_metadrive(usar_render=False, largura=640, altura=360, semente=42, densidade=0.30):
     from metadrive.component.sensors.rgb_camera import RGBCamera
     from metadrive.envs.metadrive_env import MetaDriveEnv
@@ -52,6 +53,7 @@ def abrir_ambiente_metadrive(usar_render=False, largura=640, altura=360, semente
     return MetaDriveEnv(cfg)
 
 
+# Converte observacao RGB do simulador para array BGR uint8 compativel com OpenCV/YOLO
 def extrair_bgr(obs):
     frame = np.asarray(obs["image"])
     if frame.ndim == 4:
@@ -65,11 +67,13 @@ def extrair_bgr(obs):
     return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
 
+# Gera sequencia deterministica de acoes para garantir comparabilidade justa entre benchmarks
 def gerar_acoes_fixas(num_steps, semente=42):
     rng = np.random.default_rng(semente)
     return [(float(rng.uniform(-0.08, 0.08)), float(rng.uniform(0.65, 0.92))) for _ in range(num_steps)]
 
 
+# Executa inferencia YOLOv8n, filtra classes de trafego e atualiza cache para frame skipping
 def inferir_e_anotar_yolo(modelo, frame_bgr, imgsz=640, conf_min=0.20, cache_boxes=None):
     resultados = modelo.predict(source=frame_bgr, imgsz=imgsz, conf=conf_min, verbose=False)
     det = resultados[0]
@@ -143,6 +147,7 @@ def executar_passagem_env(
             atualizou = 0
 
             if modelo_yolo is not None:
+                # Frame skipping: executa inferencia pesada a cada 'skip' steps e reutiliza boxes nos intermediarios
                 if idx % max(1, int(skip)) == 0:
                     ty = time.perf_counter()
                     anotada, ultima_contagem = inferir_e_anotar_yolo(
@@ -393,19 +398,15 @@ def main():
         ganho = ((fps_val - fps_base_yolo) / max(fps_base_yolo, 1e-9)) * 100.0
         print(f"{rotulo:<38} | {sk:>4} | {str(sz)+'x'+str(sz):>9} | {lat_val:>19.2f} | {fps_val:>12.2f} | {ganho:>+17.1f}%")
 
-    print("\n--- Discussao: Impacto de Detectores Profundos no Loop de Controle e Otimizacoes ---")
-    print("1. Acoplamento Percepcao-Controle: Executar inferencia profunda sincrona em cada step introduz")
-    print("   atraso de transporte (phase lag) na malha fechada de estercamento e frenagem. A 80 km/h (22.2 m/s),")
-    print("   cada 50 ms adicionais de inferencia significam 1.11 m percorridos 'as cegas' entre observacao e comando.")
-    print("2. Frame Skipping (skip=2 ou skip=4): Executa o YOLOv8n a cada k frames e propaga/rastreia as")
-    print("   bounding boxes nos frames intermediarios (usando fluxo optico LK ou filtro de Kalman), recuperando")
-    print("   grande parte do FPS original com aumento controlado da idade da deteccao.")
-    print("3. Reducao de Resolucao (imgsz=320 vs 640): Reduz quadratically o numero de operacoes MAC nas")
-    print("   camadas convolucionais (1/4 dos pixels), elevando o FPS em todo frame sem atraso de amostragem,")
-    print("   com trade-off de menor revocacao para objetos pequenos/distantes no horizonte.")
-    print("4. Quantizacao e Desacoplamento Assincrono: Em producao automotiva, exporta-se o modelo para")
-    print("   TensorRT/ONNX em FP16 ou INT8 e desacopla-se a thread de percepcao (20-30 Hz) da thread de")
-    print("   controle longitudinal/lateral (50-100 Hz).")
+    # Discussao (Impacto no loop de controle e otimizacoes):
+    # - Acoplamento percepcao-controle: inferencia sincrona adiciona phase lag na malha fechada
+    #   (a 80 km/h = 22.2 m/s, +50 ms equivale a 1.11 m percorridos entre observacao e comando).
+    # - Frame skipping (skip=2 ou 4): reduz frequencia da rede e reutiliza/propaga boxes nos steps
+    #   intermediarios (ex: via LK/Kalman), recuperando FPS com leve aumento da idade da deteccao.
+    # - Reducao de resolucao (imgsz=320 vs 640): reduz quadraticamente MACs nas camadas conv (1/4 px),
+    #   elevando o FPS em todo frame com trade-off de menor revocacao para objetos pequenos/distantes.
+    # - Producao automotiva: exportacao TensorRT/ONNX (FP16/INT8) e desacoplamento assincrono entre
+    #   thread de percepcao (20-30 Hz) e thread de controle (50-100 Hz).
     print(f"\nArquivos salvos: {caminho_csv.name}, {caminho_serie.name}, {caminho_mp4.name}")
 
     if args.auto:

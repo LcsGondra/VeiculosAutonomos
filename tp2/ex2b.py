@@ -6,10 +6,12 @@ import numpy as np
 from utils import BASE_DIR, carregar_imagem, normalizar_uint8
 
 
+# Implementa filtragem espacial 2D manual em NumPy com borda reflect equivalente ao OpenCV
 def convolucao_2d_manual_lacos(imagem_cinza, kernel_3x3):
     img_f64 = imagem_cinza.astype(np.float64)
     k_f64 = np.asarray(kernel_3x3, dtype=np.float64)
     h, w = img_f64.shape
+    # mode='reflect' replica cv2.BORDER_REFLECT_101 sem duplicar o pixel de borda
     padded = np.pad(img_f64, ((1, 1), (1, 1)), mode="reflect")
     saida = np.zeros((h, w), dtype=np.float64)
 
@@ -21,17 +23,20 @@ def convolucao_2d_manual_lacos(imagem_cinza, kernel_3x3):
     return saida
 
 
+# Aplica combinacoes lineares de Sobel X/Y orientadas em 0, 45, 90 e 135 graus
 def banco_filtros_direcionais_numpy(imagem_cinza):
     kx = np.array([[-1.0, 0.0, 1.0], [-2.0, 0.0, 2.0], [-1.0, 0.0, 1.0]], dtype=np.float64)
     ky = kx.T
     img_f64 = imagem_cinza.astype(np.float64)
     padded = np.pad(img_f64, ((1, 1), (1, 1)), mode="reflect")
+    # sliding_window_view + einsum vetoriza a convolucao 2D em NumPy puro sem cv2.filter2D
     janelas = np.lib.stride_tricks.sliding_window_view(padded, (3, 3))
 
     respostas = {}
     kernels = {}
     for angulo in (0, 45, 90, 135):
         theta = np.deg2rad(angulo)
+        # Base direcional steerable: k(theta) = cos(theta)*Kx + sin(theta)*Ky
         k_dir = np.cos(theta) * kx + np.sin(theta) * ky
         kernels[angulo] = k_dir
         conv = np.einsum("ijkl,kl->ij", janelas, k_dir)
@@ -130,20 +135,12 @@ def main():
     print(f"Formato do Tensor de Saida   : {tensor_feature_maps.shape} (H x W x C_out = 4 mapas de caracteristicas)")
     print(f"Angulo de maior resposta     : {angulo_vencedor}° (gradiente horizontal ortogonal as faixas longitudinais)")
 
-    print("\n--- Discussao: Filtros Direcionais vs Camadas Convolucionais de CNNs (Conexao DR2) ---")
-    print("1. Orientacao Geometrica no BEV: Na projecao Bird's Eye View (BEV), as faixas de rolamento correm")
-    print("   verticalmente na imagem (ao longo do eixo Y). Portanto, a transicao abrupta de intensidade")
-    print("   asfalto->tinta ocorre na direcao horizontal (eixo X), fazendo o filtro de 0° (Sobel X, gradiente")
-    print("   horizontal) maximizar a resposta nas bordas das faixas, enquanto o filtro de 90° (Sobel Y)")
-    print("   responde apenas nas extremidades curtas dos tracejados.")
-    print("2. Equilibrio Matematico com Conv2D (DR2): O banco de 4 filtros 3x3 empilhados transforma uma")
-    print("   entrada HxWx1 em um volume de ativacao HxWx4. Essa operacao e matematicamente identica a uma")
-    print("   camada `Conv2D(in_channels=1, out_channels=4, kernel_size=3, padding='reflect')` sem bias.")
-    print("3. Pesos Fixos vs Pesos Aprendidos: No processamento classico (Sobel/Gabor), os pesos do kernel")
-    print("   sao fixados analiticamente pelo engenheiro. Nas Redes Neurais Convolucionais (CNNs estudadas em")
-    print("   DR2, como ResNet/YOLO), a primeira camada aprende automaticamente filtros direcionais de borda")
-    print("   e cor via backpropagation, enquanto camadas profundas combinam esses 4+ mapas primitivos em")
-    print("   representacoes semanticas complexas (faixas curvas sob sombra, veiculos e placas).")
+    # Discussao (Filtros Direcionais vs Camadas Convolucionais de CNNs - Conexao DR2):
+    # - No BEV, as faixas correm verticalmente (eixo Y), logo a transicao asfalto->tinta ocorre
+    #   no eixo X, fazendo o filtro 0 graus (Sobel X) maximizar a resposta nas bordas longitudinais.
+    # - O banco de 4 filtros 3x3 empilhados mapeia HxWx1 -> HxWx4, matematicamente equivalente a
+    #   uma camada Conv2D(in_channels=1, out_channels=4, kernel_size=3, padding='reflect') sem bias.
+    # - Diferentemente dos kernels analiticos fixos, CNNs (DR2) aprendem os filtros via backpropagation.
     print(f"\nFigura salva em: {caminho_fig.name}")
 
     if args.auto:

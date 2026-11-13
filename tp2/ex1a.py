@@ -6,10 +6,12 @@ import numpy as np
 from utils import BASE_DIR, carregar_imagem, criar_painel_opencv
 
 
+# Extrai descritores binarios ORB e aplica BFMatcher + teste de razao de Lowe
 def detectar_orb_e_casar(img1, img2, nfeatures=2500, ratio_lowe=0.80):
     cinza1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     cinza2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
 
+    # fastThreshold=12 aumenta a densidade de keypoints em regioes de baixo contraste
     orb = cv2.ORB_create(nfeatures=nfeatures, fastThreshold=12)
     kp1, desc1 = orb.detectAndCompute(cinza1, None)
     kp2, desc2 = orb.detectAndCompute(cinza2, None)
@@ -17,9 +19,11 @@ def detectar_orb_e_casar(img1, img2, nfeatures=2500, ratio_lowe=0.80):
     if desc1 is None or desc2 is None:
         raise RuntimeError("Descritores ORB nao encontrados nas imagens.")
 
+    # Descritores binarios ORB exigem distancia de Hamming no casamento kNN (k=2)
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
     pares_knn = bf.knnMatch(desc2, desc1, k=2)
 
+    # Filtro de Lowe descarta correspondencias ambiguas entre o 1o e o 2o vizinho
     bons_matches = []
     for par in pares_knn:
         if len(par) == 2:
@@ -30,10 +34,12 @@ def detectar_orb_e_casar(img1, img2, nfeatures=2500, ratio_lowe=0.80):
     return kp1, desc1, kp2, desc2, pares_knn, bons_matches
 
 
+# Estima H (Vista 02 -> Vista 01) via RANSAC e mede o erro de reprojecao
 def estimar_homografia_ransac(kp1, kp2, bons_matches, limiar_ransac=3.0):
     if len(bons_matches) < 4:
         raise RuntimeError(f"Matches insuficientes ({len(bons_matches)}) para homografia.")
 
+    # queryIdx referencia desc2 (Vista 02 - origem) e trainIdx referencia desc1 (Vista 01 - destino)
     pts_src = np.float32([kp2[m.queryIdx].pt for m in bons_matches]).reshape(-1, 1, 2)
     pts_dst = np.float32([kp1[m.trainIdx].pt for m in bons_matches]).reshape(-1, 1, 2)
 
@@ -51,6 +57,7 @@ def estimar_homografia_ransac(kp1, kp2, bons_matches, limiar_ransac=3.0):
     return H, inliers_mask, erros, erro_medio_inliers, erro_max_inliers, erro_medio_todos
 
 
+# Projeta ambas as vistas em um canvas unificado com alpha blending na intersecao
 def construir_mosaico_panoramico(img1, img2, H):
     h1, w1 = img1.shape[:2]
     h2, w2 = img2.shape[:2]
@@ -63,6 +70,7 @@ def construir_mosaico_panoramico(img1, img2, H):
     xmin, ymin = np.floor(todos_cantos.min(axis=0)).astype(int)
     xmax, ymax = np.ceil(todos_cantos.max(axis=0)).astype(int)
 
+    # Translacao T garante coordenadas positivas para toda a projecao da Vista 02 no canvas
     T = np.array([[1.0, 0.0, -xmin], [0.0, 1.0, -ymin], [0.0, 0.0, 1.0]], dtype=np.float64)
     largura_canvas = int(xmax - xmin)
     altura_canvas = int(ymax - ymin)
@@ -78,6 +86,7 @@ def construir_mosaico_panoramico(img1, img2, H):
     somente_vista2 = mask2 & ~mask1
     mosaico[somente_vista2] = warp2[somente_vista2]
 
+    # Blending 50/50 na zona de sobreposicao suaviza transicoes de exposicao entre cameras
     intersecao = mask1 & mask2
     mosaico[intersecao] = np.clip(
         0.5 * warp1[intersecao].astype(np.float32) + 0.5 * warp2[intersecao].astype(np.float32),
@@ -157,17 +166,14 @@ def main():
     for linha in H:
         print(f"  [{linha[0]:12.6f}  {linha[1]:12.6f}  {linha[2]:12.6f}]")
 
-    print("\n--- Aplicacao de Homografia Multi-Camera em Sistemas Surround View 360° ---")
-    print("1. Geometria Planar: Em sistemas Surround View (AVM - Around View Monitor), 4 a 6 cameras fisheye")
-    print("   (frontal, traseira e laterais nos retrovisores) capturam vistas com sobreposicao parcial nos")
-    print("   4 cantos do veiculo. Apos a correcao de distorcao radial/tangencial (intrinsecos), cada vista")
-    print("   e projetada no plano da via (z = 0) usando uma homografia H_i (Inverse Perspective Mapping).")
-    print("2. Costura e Alinhamento: Homografias inter-cameras alinham as zonas de intersecao no referencial")
-    print("   comum Bird's Eye View (BEV) centrado no chassi. O blending ponderado nas bordas de transicao")
-    print("   suaviza diferencas de exposicao automatica (AE) e balanco de branco (AWB) entre os sensores.")
-    print("3. Limitacao Fisica (Paralaxe): Como a homografia assume cena perfeitamente planar ou rotacao pura")
-    print("   sem translacao entre centros opticos, objetos tridimensionais acima do solo (pedestres, meios-fios,")
-    print("   carros proximos) sofrem distorcao radial e fantasma (ghosting) nas costuras do mosaico 360°.")
+    # Aplicacao em Sistemas Surround View 360 (AVM):
+    # - Geometria planar: 4 a 6 cameras fisheye (frontal, traseira e retrovisores) capturam
+    #   vistas com sobreposicao parcial nos 4 cantos. Apos corrigir distorcoes intrinsecas,
+    #   cada vista e projetada no plano da via (z = 0) via homografia H_i (IPM).
+    # - Costura e alinhamento: homografias inter-cameras alinham as zonas de intersecao no
+    #   referencial BEV do chassi, com blending nas bordas para suavizar diferencas de AE/AWB.
+    # - Limitacao fisica (paralaxe): objetos 3D acima do solo (pedestres, meios-fios, carros)
+    #   violam a hipotese planar e sofrem distorcao radial ou ghosting nas costuras.
     print(f"\nImagens salvas em: {caminho_mosaico.name} e {caminho_matches.name}")
 
     if not args.auto:

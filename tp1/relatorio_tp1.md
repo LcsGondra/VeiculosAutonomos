@@ -3,6 +3,7 @@
 **Disciplina:** Veículos Autônomos  
 **Módulo:** Percepção Visual Embarcada e Protocolos de Comunicação Veicular  
 **Ambiente:** Python 3.11 / OpenCV 4.10 / python-can 4.6 / NumPy / Matplotlib / Windows PowerShell  
+**Git:** [https://github.com/LcsGondra/VeiculosAutonomos/tree/main/tp1](https://github.com/LcsGondra/VeiculosAutonomos/tree/main/tp1)  
 
 ---
 
